@@ -16,7 +16,7 @@ $ make
 
 ## Usage
 
-To use the default PulseAudio device:
+To use the default PulseAudio device (may not work):
 
 ```bash
 $ ./spectrum_visualizer
@@ -26,4 +26,11 @@ To use any other PulseAudio device:
 
 ```bash
 $ ./spectrum_visualizer pulseaudio-device-name
+```
+
+Device names can be found with the pactl command.
+One of the output devices with the class "monitor" should work.
+
+```bash
+$ pactl list | grep monitor
 ```
