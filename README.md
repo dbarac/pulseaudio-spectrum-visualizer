@@ -6,16 +6,24 @@
 
 ## Requirements
 
+PulseAudio (tested with version 13.0)
+
 ## Compile
 
-> $ make
+```bash
+$ make
+```
 
 ## Usage
 
-Use the default pulseaudio device
+To use the default PulseAudio device:
 
-> $ ./spectrum_visualizer
+```bash
+$ ./spectrum_visualizer
+```
 
-Use any other pulseaudio device
+To use any other PulseAudio device:
 
-> $ ./spectrum_visualizer pulseaudio-device-name
+```bash
+$ ./spectrum_visualizer pulseaudio-device-name
+```
