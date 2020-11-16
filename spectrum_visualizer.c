@@ -4,16 +4,15 @@
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <signal.h>
-
 #include <pulse/simple.h>
 #include <pulse/error.h>
 
-#define BUFSIZE 2048
-#define N 2048
+#define N_SAMPLES 2048
 #define SCALING_FACTOR 20
+#define MAX_TERM_SIZE 400*400
 
 int ROWS, COLS;
-uint16_t indices[BUFSIZE];
+uint16_t indices[N_SAMPLES];
 
 typedef struct {
 	double re;
@@ -58,8 +57,8 @@ Complex cmul(Complex z1, Complex z2)
 void reverse_index_bits()
 {
 	uint16_t reversed;
-	int bits = log2(N);
-	for (uint16_t i = 0; i < N; i++) {
+	int bits = log2(N_SAMPLES);
+	for (uint16_t i = 0; i < N_SAMPLES; i++) {
 		indices[i] = i;
 		reversed = 0;
 		for (uint16_t bit = 0; bit < bits; bit++) {
@@ -71,22 +70,21 @@ void reverse_index_bits()
 	}
 }
 
-void fft(Complex result[BUFSIZE], float buffer[BUFSIZE])
+//iterative in-place Cooley-Tukey FFT
+void fft(Complex result[N_SAMPLES], float buffer[N_SAMPLES])
 {
-	//iterative in-place Cooley-Tukey FFT
-
 	//smallest FFT subproblem, each frequency bin is the same as the sample
 	//with index = indices[bin] = reverse_bits(bin)
-	for (uint16_t bin = 0; bin < N; bin++) {
+	for (uint16_t bin = 0; bin < N_SAMPLES; bin++) {
 		result[bin].re = buffer[indices[bin]];
 	}
-	for (uint16_t bin = 0; bin < N; bin++) {
+	for (uint16_t bin = 0; bin < N_SAMPLES; bin++) {
 		result[bin].im = 0.0;
 	}
-	//combine solutions to FFT subproblems (FFT butterfly)
+	//combine solutions to FFT subproblems
 	//M = current subproblem size (number of bins)
-	for (uint16_t M = 2; M <= N; M *= 2) {
-		for (uint16_t subproblem = 0; subproblem < N / M; subproblem++) {
+	for (uint16_t M = 2; M <= N_SAMPLES; M *= 2) {
+		for (uint16_t subproblem = 0; subproblem < N_SAMPLES/M; subproblem++) {
 			for (uint16_t k = 0; k < M/2; k++) {
 				Complex w = {.re = 0, .im = -2 * M_PI * k / M};
 				Complex twiddle_factor = cexp(w);
@@ -104,37 +102,29 @@ void fft(Complex result[BUFSIZE], float buffer[BUFSIZE])
 	}
 }
 
-void apply_hann_window(float samples[N])
+void apply_hann_window(float samples[N_SAMPLES])
 {
-	for (uint16_t i = 0; i < N; i++) {
-		float ratio = (float)i / (N - 1);
+	for (uint16_t i = 0; i < N_SAMPLES; i++) {
+		float ratio = (float)i / (N_SAMPLES - 1);
 		float weight = 0.5 * (1 - cos(2 * M_PI * ratio));
 		samples[i] *= weight;
 	}
 }
 
-void apply_hamming_window(float samples[N])
+void apply_hamming_window(float samples[N_SAMPLES])
 {
-	for (uint16_t i = 0; i < N; i++) {
-		float ratio = (float)i / (N - 1);
+	for (uint16_t i = 0; i < N_SAMPLES; i++) {
+		float ratio = (float)i / (N_SAMPLES - 1);
 		float weight = 0.54 - (0.46 * cos(2 * M_PI * ratio));
 		samples[i] *= weight;
 	}
 }
 
-void apply_triangle_window(float samples[N])
+void display_spectrum(Complex fft_res[N_SAMPLES])
 {
-	for (uint16_t i = 0; i < N; i++) {
-		float weight = 1 - abs(((float)i - (float)(N-1) / 2) / (N - 1));
-		samples[i] *= weight;
-	}
-}
-
-void display_spectrum(Complex fft_res[BUFSIZE])
-{
-	static char spectrum[200*300];//[ROWS*COLS+1]; //TODO: fix
+	static char spectrum[MAX_TERM_SIZE];
 	spectrum[ROWS*COLS] = '\0';
-	int bins = N / 4 / COLS; //display 1/4 of result bins
+	int bins = N_SAMPLES / 4 / COLS; //display 1/4 of result bins
 	for (int i = 0; i < COLS; i++) {
 		int magnitude = 0;
 		for (int j = 0; j < bins; j++) {
@@ -179,8 +169,8 @@ int main(int argc, char *argv[])
 	}
 
 	reverse_index_bits();
-	float buf[BUFSIZE];
-	Complex result[BUFSIZE];
+	float buf[N_SAMPLES];
+	Complex result[N_SAMPLES];
 
 	printf("\e[?25l"); //disable cursor
 	printf("\033[1;36m"); //change color
@@ -189,23 +179,22 @@ int main(int argc, char *argv[])
 	get_terminal_size(SIGWINCH);
 
 	while (1) {
-		/*if (pa_simple_flush(stream, &error)) {
-			printf("flush failed\n");
-		}*/
 		//get samples
 		if (pa_simple_read(stream, buf, sizeof(buf), &error) < 0) {
 			printf("sample reading failed\n");
 			return 1;
 		}
+
 		//run fft
 		float mean = 0;
-		for (int i = 0; i < BUFSIZE; i++)
+		for (int i = 0; i < N_SAMPLES; i++)
 			mean += buf[i];
-		mean /= N;
-		for (int i = 0; i < BUFSIZE; i++)
+		mean /= N_SAMPLES;
+		for (int i = 0; i < N_SAMPLES; i++)
 			buf[i] -= 0.7*mean;
 		apply_hann_window(buf);
 		fft(result, buf);
+
 		system("clear");
 		display_spectrum(result);
 		//usleep(500);
