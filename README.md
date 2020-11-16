@@ -1,4 +1,4 @@
-# Pulseaudio spectrum visualizer
+# PulseAudio spectrum visualizer
 
 ## Demo
 
