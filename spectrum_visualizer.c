@@ -7,11 +7,11 @@
 #include <pulse/simple.h>
 #include <pulse/error.h>
 
-#define N_SAMPLES 2048
+#define N_SAMPLES 1024
 #define SCALING_FACTOR 20
 #define MAX_TERM_SIZE 400*400
 
-int ROWS, COLS;
+uint16_t ROWS, COLS;
 uint16_t indices[N_SAMPLES];
 
 typedef struct {
@@ -57,7 +57,7 @@ Complex cmul(Complex z1, Complex z2)
 void reverse_index_bits()
 {
 	uint16_t reversed;
-	int bits = log2(N_SAMPLES);
+	uint16_t bits = log2(N_SAMPLES);
 	for (uint16_t i = 0; i < N_SAMPLES; i++) {
 		indices[i] = i;
 		reversed = 0;
@@ -185,16 +185,8 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 
-		//run fft
-		float mean = 0;
-		for (int i = 0; i < N_SAMPLES; i++)
-			mean += buf[i];
-		mean /= N_SAMPLES;
-		for (int i = 0; i < N_SAMPLES; i++)
-			buf[i] -= 0.7*mean;
 		apply_hann_window(buf);
 		fft(result, buf);
-
 		system("clear");
 		display_spectrum(result);
 		//usleep(500);
